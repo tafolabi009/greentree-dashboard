@@ -7,10 +7,12 @@ import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 
+type SalesData = { year: number; sales: number };
+
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 // Fallback mock data
-const fallbackData = [
+const fallbackData: SalesData[] = [
   { year: 2022, sales: 120000 },
   { year: 2023, sales: 175000 },
   { year: 2024, sales: 210000 },
@@ -23,7 +25,7 @@ const SalesChartPanel: React.FC = () => {
   const [threshold, setThreshold] = useState<number>(0);
 
   const { data, error, isLoading } = useSWR('/api/sales', fetcher, { fallbackData });
-  const filteredData = (data || fallbackData).filter((d: any) => d.sales >= threshold);
+  const filteredData = ((data as SalesData[]) || fallbackData).filter((d) => d.sales >= threshold);
 
   return (
     <div className="bg-white rounded-lg shadow p-6 w-full max-w-2xl mx-auto">
@@ -76,7 +78,7 @@ const SalesChartPanel: React.FC = () => {
                   outerRadius={100}
                   label
                 >
-                  {filteredData.map((entry: any, idx: number) => (
+                  {filteredData.map((entry, idx: number) => (
                     <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
                   ))}
                 </Pie>
