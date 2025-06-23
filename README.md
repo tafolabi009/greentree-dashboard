@@ -47,4 +47,4 @@ A modern, atomic-structured Next.js 15 dashboard for visualizing sales data (202
 
 ---
 
-**Enjoy a beautiful, extensible sales dashboard!**
+**Enjoy a beautiful, extensible sales dashboard! It is very peak**
