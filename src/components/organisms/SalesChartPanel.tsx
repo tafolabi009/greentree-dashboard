@@ -3,11 +3,19 @@ import React, { useState } from 'react';
 import useSWR from 'swr';
 import ChartSwitcher, { ChartType } from '../molecules/ChartSwitcher';
 import Input from '../atoms/Input';
-import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer
-} from 'recharts';
-import { Pie as ChartJSPie } from 'react-chartjs-2';
-import { Chart as ChartJS, ArcElement, Tooltip as ChartJSTooltip, Legend as ChartJSLegend } from 'chart.js';
+import { Bar, Line, Pie as ChartJSPie } from 'react-chartjs-2';
+import { 
+  Chart as ChartJS, 
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  ArcElement, 
+  Tooltip as ChartJSTooltip, 
+  Legend as ChartJSLegend,
+  Title
+} from 'chart.js';
 import type { TooltipItem } from 'chart.js';
 
 type SalesData = { year: number; sales: number };
@@ -26,7 +34,17 @@ const fallbackData: SalesData[] = [
 
 const COLORS = ['#16a34a', '#22d3ee', '#f59e42', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#10b981'];
 
-ChartJS.register(ArcElement, ChartJSTooltip, ChartJSLegend);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  ArcElement, 
+  ChartJSTooltip, 
+  ChartJSLegend,
+  Title
+);
 
 const SalesChartPanel: React.FC = () => {
   const [chartType, setChartType] = useState<ChartType>('bar');
@@ -35,28 +53,38 @@ const SalesChartPanel: React.FC = () => {
   const { data, error, isLoading } = useSWR('/api/sales', fetcher, { fallbackData });
   const filteredData = ((data as SalesData[]) || fallbackData).filter((d) => d.sales >= threshold);
 
-  // Chart.js pie data
-  const chartJsPieData = {
+  // Common chart data
+  const chartData = {
     labels: filteredData.map((d) => `Year ${d.year}`),
     datasets: [
       {
+        label: 'Sales',
         data: filteredData.map((d) => d.sales),
-        backgroundColor: COLORS.slice(0, filteredData.length),
-        borderColor: '#fff',
-        borderWidth: 2,
+        backgroundColor: chartType === 'pie' ? COLORS.slice(0, filteredData.length) : '#16a34a',
+        borderColor: chartType === 'line' ? '#16a34a' : '#16a34a',
+        borderWidth: chartType === 'line' ? 3 : 0,
+        pointBackgroundColor: '#16a34a',
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 2,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        tension: 0.1,
       },
     ],
   };
-  const chartJsPieOptions = {
+
+  const chartOptions = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'bottom' as const,
+        display: chartType !== 'pie',
+        position: 'top' as const,
         labels: { font: { size: 14 } },
       },
       tooltip: {
         callbacks: {
-          label: function(tooltipItem: TooltipItem<'pie'>) {
+          label: function(tooltipItem: TooltipItem<'bar' | 'line' | 'pie'>) {
             const label = tooltipItem.label || '';
             const value = tooltipItem.raw as number || 0;
             return `${label}: $${value.toLocaleString()}`;
@@ -64,7 +92,29 @@ const SalesChartPanel: React.FC = () => {
         },
       },
     },
-    maintainAspectRatio: false,
+    scales: chartType !== 'pie' ? {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: function(value: number | string) {
+            return '$' + Number(value).toLocaleString();
+          },
+        },
+      },
+    } : undefined,
+  };
+
+  const renderChart = () => {
+    switch (chartType) {
+      case 'bar':
+        return <Bar data={chartData} options={chartOptions} />;
+      case 'line':
+        return <Line data={chartData} options={chartOptions} />;
+      case 'pie':
+        return <ChartJSPie data={chartData} options={chartOptions} />;
+      default:
+        return null;
+    }
   };
 
   return (
@@ -100,57 +150,18 @@ const SalesChartPanel: React.FC = () => {
               Failed to load data.
             </div>
           </div>
-        ) : chartType === 'bar' ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={filteredData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <XAxis dataKey="year" />
-              <YAxis />
-              <Tooltip 
-                formatter={(value: number) => [`$${value.toLocaleString()}`, 'Sales']}
-                labelFormatter={(label) => `Year ${label}`}
-              />
-              <Legend />
-              <Bar dataKey="sales" fill="#16a34a" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : chartType === 'line' ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={filteredData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <XAxis dataKey="year" />
-              <YAxis />
-              <Tooltip 
-                formatter={(value: number) => [`$${value.toLocaleString()}`, 'Sales']}
-                labelFormatter={(label) => `Year ${label}`}
-              />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="sales" 
-                stroke="#16a34a" 
-                strokeWidth={3}
-                dot={{ fill: '#16a34a', strokeWidth: 2, r: 6 }}
-                activeDot={{ r: 8, stroke: '#16a34a', strokeWidth: 2, fill: '#ffffff' }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        ) : chartType === 'pie' ? (
-          filteredData.length > 0 ? (
-            <div className="w-full h-full flex items-center justify-center">
-              <div className="w-full h-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl">
-                <ChartJSPie data={chartJsPieData} options={chartJsPieOptions} />
-              </div>
+        ) : filteredData.length > 0 ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="w-full h-full">
+              {renderChart()}
             </div>
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-500">
-              <div className="text-center">
-                <div className="text-4xl mb-2">📊</div>
-                No data available for pie chart
-              </div>
-            </div>
-          )
+          </div>
         ) : (
           <div className="flex items-center justify-center h-full text-gray-500">
-            Select a chart type to view data
+            <div className="text-center">
+              <div className="text-4xl mb-2">📊</div>
+              No data available for chart
+            </div>
           </div>
         )}
       </div>
